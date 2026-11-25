@@ -1,0 +1,5 @@
+{
+  "name": "piper-hook",
+  "version": "0.1.0",
+  "description": "Speaks Claude Code replies aloud with Piper TTS. Needs only Python 3.11+."
+}

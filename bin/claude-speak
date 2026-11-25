@@ -1,48 +1,79 @@
-#!/usr/bin/env bash
-mode_file="$HOME/.claude/tts-mode"
-voice_file="$HOME/.claude/tts-voice"
-voices_dir="$HOME/.local/share/claude-tts/voices"
-pidfile="$HOME/.local/share/claude-tts/speak.pid"
+#!/usr/bin/env python3
+"""Control spoken replies: claude-speak full|short|off|stop|status|voice [name]|setup|shim"""
+import subprocess
+import sys
+from pathlib import Path
 
-fetch_voice() {
-  "$HOME/.local/share/claude-tts/venv/bin/python" -m piper.download_voices --data-dir "$voices_dir" "$1"
-}
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hooks"))
+import common  # noqa: E402
 
-stop() {
-  [ -f "$pidfile" ] && kill -- "-$(cat "$pidfile")" 2>/dev/null
-  return 0
-}
+USAGE = "usage: claude-speak full|short|off|stop|status|voice [name]|setup|shim"
+SHIM = Path.home() / ".local" / "bin" / "claude-speak"
 
-case "${1:-status}" in
-  full|short)
-    echo "$1" > "$mode_file"
-    echo "speech: $1"
-    ;;
-  off)
-    echo off > "$mode_file"
-    stop
-    echo "speech: off"
-    ;;
-  stop)
-    stop
-    ;;
-  voice)
-    if [ -z "$2" ]; then
-      echo "voice: $(cat "$voice_file" 2>/dev/null || echo en_US-lessac-medium)"
-      ls "$voices_dir" | sed -n 's/\.onnx$//p'
-    elif [ -f "$voices_dir/$2.onnx" ] || fetch_voice "$2"; then
-      echo "$2" > "$voice_file"
-      echo "voice: $2"
-    else
-      echo "could not get voice $2" >&2
-      exit 1
-    fi
-    ;;
-  status)
-    echo "speech: $(cat "$mode_file" 2>/dev/null || echo full)"
-    ;;
-  *)
-    echo "usage: claude-speak full|short|off|stop|status|voice [name]" >&2
-    exit 2
-    ;;
-esac
+
+def set_mode(mode: str) -> int:
+    common.write_state("mode", mode)
+    if mode == "off":
+        common.stop_playback()
+    print(f"speech: {mode}")
+    return 0
+
+
+def list_voices() -> int:
+    print(f"voice: {common.read_state('voice', common.DEFAULT_VOICE)}")
+    for model in sorted(common.VOICES.glob("*.onnx")):
+        print(model.stem)
+    return 0
+
+
+def fetch_voice(name: str) -> bool:
+    return common.engine_ready() and subprocess.run(
+        [str(common.VENV_PYTHON), "-m", "piper.download_voices", "--data-dir", str(common.VOICES), name]
+    ).returncode == 0
+
+
+def set_voice(name: str) -> int:
+    if not (common.voice_model(name).exists() or fetch_voice(name)):
+        print(f"could not get voice {name} (engine ready: {common.engine_ready()}; try `claude-speak setup`)", file=sys.stderr)
+        return 1
+    common.write_state("voice", name)
+    print(f"voice: {name}")
+    return 0
+
+
+def setup() -> int:
+    return subprocess.run([sys.executable, str(common.HOOKS_DIR / "bootstrap.py"), "--run"]).returncode
+
+
+def install_shim() -> int:
+    target = Path(__file__).resolve()
+    SHIM.parent.mkdir(parents=True, exist_ok=True)
+    SHIM.unlink(missing_ok=True)
+    SHIM.symlink_to(target)
+    print(f"{SHIM} -> {target} (re-pointed automatically on plugin updates)")
+    return 0
+
+
+def main(argv: list[str]) -> int:
+    match argv[:1] or ["status"]:
+        case ["full" | "short" | "off" as mode]:
+            return set_mode(mode)
+        case ["stop"]:
+            common.stop_playback()
+            return 0
+        case ["status"]:
+            print(f"speech: {common.read_state('mode', 'full')}")
+            return 0
+        case ["voice"]:
+            return set_voice(argv[1]) if len(argv) > 1 else list_voices()
+        case ["setup"]:
+            return setup()
+        case ["shim"]:
+            return install_shim()
+        case _:
+            print(USAGE, file=sys.stderr)
+            return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
