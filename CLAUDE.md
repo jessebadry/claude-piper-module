@@ -63,7 +63,7 @@ The marketplace entry has no `version`. The one in `plugin.json` is the source o
 - Skills to load for this repo:
   - `/jesse-mode` (`anthropic-skills:jesse-mode`): before writing or changing any Python or shell.
   - `/caveman-commit`: for every commit. It proposes the message and waits for "commit". No AI attribution trailers. The scope used so far is `piper-plugin`; confirm the type with the user.
+  - `/unslop` (`anthropic-skills:unslop`): for the README, this file, and any other prose the user will read.
   - `/codebase-design`: for design-heavy work, such as changing module boundaries or the hook/player split. There has been very little of this so far.
 - Pushes to `origin` may prompt for approval. Use plain `git` over SSH. There is no `gh` CLI, and the GitHub MCP is broken (bad tokens), so don't use it for repo work.
 - The maintainer's own machine runs this plugin for real (installed from GitHub, speech state in `~/.local/share/claude-tts/`). Don't edit `~/.claude/settings.json` or delete anything in `~/.local/share/claude-tts/` without asking.
-- Prose for the README and docs goes through the `unslop` skill.
