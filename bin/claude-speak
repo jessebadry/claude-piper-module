@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+mode_file="$HOME/.claude/tts-mode"
+voice_file="$HOME/.claude/tts-voice"
+voices_dir="$HOME/.local/share/claude-tts/voices"
+pidfile="$HOME/.local/share/claude-tts/speak.pid"
+
+fetch_voice() {
+  "$HOME/.local/share/claude-tts/venv/bin/python" -m piper.download_voices --data-dir "$voices_dir" "$1"
+}
+
+stop() {
+  [ -f "$pidfile" ] && kill -- "-$(cat "$pidfile")" 2>/dev/null
+  return 0
+}
+
+case "${1:-status}" in
+  full|short)
+    echo "$1" > "$mode_file"
+    echo "speech: $1"
+    ;;
+  off)
+    echo off > "$mode_file"
+    stop
+    echo "speech: off"
+    ;;
+  stop)
+    stop
+    ;;
+  voice)
+    if [ -z "$2" ]; then
+      echo "voice: $(cat "$voice_file" 2>/dev/null || echo en_US-lessac-medium)"
+      ls "$voices_dir" | sed -n 's/\.onnx$//p'
+    elif [ -f "$voices_dir/$2.onnx" ] || fetch_voice "$2"; then
+      echo "$2" > "$voice_file"
+      echo "voice: $2"
+    else
+      echo "could not get voice $2" >&2
+      exit 1
+    fi
+    ;;
+  status)
+    echo "speech: $(cat "$mode_file" 2>/dev/null || echo full)"
+    ;;
+  *)
+    echo "usage: claude-speak full|short|off|stop|status|voice [name]" >&2
+    exit 2
+    ;;
+esac
