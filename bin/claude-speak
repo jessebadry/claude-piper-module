@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-"""Control spoken replies: claude-speak full|short|off|stop|status|voice [name]|setup|shim"""
+"""Control spoken replies: claude-speak full|short|off|stop|replay [full|short]|this|status|voice [name]|setup|shim"""
 import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hooks"))
 import common  # noqa: E402
+import speak  # noqa: E402
+import speech_text  # noqa: E402
 
-USAGE = "usage: claude-speak full|short|off|stop|status|voice [name]|setup|shim"
+USAGE = "usage: claude-speak full|short|off|stop|replay [full|short]|this|status|voice [name]|setup|shim"
 SHIM = Path.home() / ".local" / "bin" / "claude-speak"
 
 
@@ -16,6 +18,17 @@ def set_mode(mode: str) -> int:
     if mode == "off":
         common.stop_playback()
     print(f"speech: {mode}")
+    return 0
+
+
+def replay(mode: speech_text.Mode) -> int:
+    try:
+        reply = common.LAST_REPLY.read_text()
+    except OSError:
+        print("no reply saved yet", file=sys.stderr)
+        return 1
+    common.skip_next_reply()
+    print(f"replay: {speak.say(reply, mode)}")
     return 0
 
 
@@ -55,17 +68,23 @@ def install_shim() -> int:
 
 
 def main(argv: list[str]) -> int:
-    match argv[:1] or ["status"]:
+    match argv or ["status"]:
         case ["full" | "short" | "off" as mode]:
             return set_mode(mode)
         case ["stop"]:
             common.stop_playback()
             return 0
+        case ["replay" | "this"]:
+            return replay("full")
+        case ["replay" | "this", "full" | "short" as mode]:
+            return replay(mode)
         case ["status"]:
             print(f"speech: {common.read_state('mode', 'full')}")
             return 0
         case ["voice"]:
-            return set_voice(argv[1]) if len(argv) > 1 else list_voices()
+            return list_voices()
+        case ["voice", name]:
+            return set_voice(name)
         case ["setup"]:
             return setup()
         case ["shim"]:

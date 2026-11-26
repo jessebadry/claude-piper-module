@@ -27,10 +27,12 @@ Restart Claude Code to apply it. Updates only arrive when `version` in `.claude-
 ## Use
 
 ```
-claude-speak full | short | off | stop | status | voice [name] | setup | shim
+claude-speak full | short | off | stop | this | replay [full|short] | status | voice [name] | setup | shim
 ```
 
 - `full` speaks the whole reply. `short` speaks whole sentences up to about 400 characters. `off` disables speech and stops anything playing.
+- `this` and `replay` speak the last reply again, in full by default. `replay short` gives the short version. It works while speech is `off`, so `/piper-hook:speak this` is a one-off read-aloud. The reply that reports the replay is neither spoken nor saved, so the replay isn't cut off and repeating it replays the right text.
+- Speech stops when any app starts recording from a microphone, and replies aren't spoken while one is recording. Screen and audio capture of output devices don't count. Detection uses `pactl`, so it needs PulseAudio or PipeWire's pulse layer. Without `pactl` speech behaves as before.
 - `voice` with no name lists installed voices. `voice <name>` downloads the model if missing, then switches. Names look like `en_US-ryan-high`. Samples: <https://rhasspy.github.io/piper-samples/>.
 - Inside Claude Code, `/piper-hook:speak short` and the rest do the same thing.
 - `claude-speak` is on PATH for Claude's own shell. To use it from your terminal, run the plugin's copy once with `claude-speak shim` (Claude can do this for you), which links it into `~/.local/bin`. Plugin updates re-point the link.
@@ -40,13 +42,13 @@ claude-speak full | short | off | stop | status | voice [name] | setup | shim
 
 | Path | What |
 |---|---|
-| `~/.local/share/claude-tts/` (or `$XDG_DATA_HOME/claude-tts/`) | venv, voices, `mode`, `voice`, `last.txt`, `speak.pid`, `bootstrap.log` |
+| `~/.local/share/claude-tts/` (or `$XDG_DATA_HOME/claude-tts/`) | venv, voices, `mode`, `voice`, `last.txt`, `last_reply.md`, `speak.pid`, `bootstrap.log` |
 | `hooks/hooks.json` | `SessionStart` (bootstrap) and `Stop` (speak) registration |
-| `hooks/speak.py` | The `Stop` hook. Cleans the reply, starts the player. |
-| `hooks/player.py` | Runs inside the venv. Synthesizes with Piper and plays through `miniaudio`. |
+| `hooks/speak.py` | The `Stop` hook. Saves the raw reply, cleans it, starts the player. |
+| `hooks/player.py` | Runs inside the venv. Synthesizes with Piper and plays through `miniaudio`. Stops when the mic goes live. |
 | `hooks/bootstrap.py` | Builds the venv and fetches the voice, detached so it never blocks session start. |
 | `hooks/speech_text.py` | Turns a markdown reply into speakable text. Stdlib only. |
-| `bin/claude-speak` | CLI for mode, voice and stopping playback. |
+| `bin/claude-speak` | CLI for mode, voice, replay and stopping playback. |
 | `commands/speak.md` | `/piper-hook:speak <args>` wrapper around the CLI. |
 
 The data directory is a fixed path because Claude's shell doesn't get `CLAUDE_PLUGIN_DATA`, and the CLI has to find the same state as the hook. Uninstalling the plugin leaves it in place. Delete it by hand to reclaim the space.

@@ -1,6 +1,6 @@
 ---
-description: Switch spoken replies (full, short, off, stop, status, voice)
-argument-hint: full | short | off | stop | status | voice [name]
+description: Switch spoken replies (full, short, off, stop, replay, status, voice)
+argument-hint: full | short | off | stop | this | replay [full|short] | status | voice [name]
 allowed-tools: Bash(claude-speak *)
 ---
 

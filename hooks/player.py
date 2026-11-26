@@ -13,6 +13,7 @@ from piper import PiperVoice
 import common
 
 TAIL_SECONDS = 0.4
+MIC_POLL_SECONDS = 0.5
 
 
 def synthesize_into(voice: PiperVoice, text: str, out: "queue.Queue[bytes | None]") -> None:
@@ -54,7 +55,10 @@ def play(voice: PiperVoice, text: str) -> None:
         sample_rate=voice.config.sample_rate,
     )
     device.start(stream)
-    finished.wait()
+    while not finished.wait(MIC_POLL_SECONDS):
+        if common.mic_in_use():
+            device.close()
+            return
     time.sleep(TAIL_SECONDS)
     device.close()
 
